@@ -1,0 +1,93 @@
+/* GameControls.module.css */
+.container {
+  display: flex;
+  flex-direction: column;
+  margin-top: 20px;
+  padding: 10px;
+  background-color: #f8f9fa;
+  border-radius: 8px;
+}
+
+.button {
+  margin: 5px;
+  padding: 8px 16px;
+  border: none;
+  border-radius: 4px;
+  cursor: pointer;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
+.modeSelector {
+  display: flex;
+  justify-content: center;
+  margin-bottom: 10px;
+}
+
+.toggleContainer {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  margin: 10px 0;
+  font-size: 12px;
+}
+
+.buttonRow {
+  display: flex;
+  justify-content: center;
+}
+
+.modeButtonActive {
+  composes: button;
+  background-color: #007bff;
+  color: white;
+}
+
+.modeButtonInactive {
+  composes: button;
+  background-color: #e9ecef;
+  color: black;
+}
+
+.toggleButtonActive {
+  composes: button;
+  background-color: #28a745;
+  color: white;
+  font-size: 12px;
+  padding: 6px 12px;
+}
+
+.toggleButtonInactive {
+  composes: button;
+  background-color: #e9ecef;
+  color: black;
+  font-size: 12px;
+  padding: 6px 12px;
+}
+
+.newGameButton {
+  composes: button;
+  background-color: #28a745;
+  color: white;
+}
+
+.checkButtonEnabled {
+  composes: button;
+  background-color: #007bff;
+  color: white;
+  opacity: 1;
+  cursor: pointer;
+}
+
+.checkButtonDisabled {
+  composes: button;
+  background-color: #6c757d;
+  color: white;
+  opacity: 0.5;
+  cursor: not-allowed;
+}
+
+.iconMargin {
+  margin-right: 5px;
+} 

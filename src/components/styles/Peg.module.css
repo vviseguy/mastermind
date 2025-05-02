@@ -1,0 +1,77 @@
+/* Base peg style */
+.peg {
+  border-radius: 50%;
+  transition: all 0.2s;
+}
+
+/* Peg sizes */
+.small {
+  width: 15px;
+  height: 15px;
+}
+
+.medium {
+  width: 30px;
+  height: 30px;
+}
+
+.large {
+  width: 40px;
+  height: 40px;
+}
+
+/* Peg margins */
+.palettePeg {
+  margin: 5px;
+}
+
+.gamePeg {
+  margin: 3px;
+}
+
+/* Peg border styles */
+.activePeg {
+  border: 3px solid #333;
+}
+
+.solidBorder {
+  border: 1px solid #333;
+}
+
+.dashedBorder {
+  border: 1px dashed #999;
+}
+
+.defaultBorder {
+  border: 1px solid #ced4da;
+}
+
+/* Peg interaction styles */
+.selectable {
+  cursor: pointer;
+}
+
+.draggable {
+  cursor: grab;
+}
+
+.isOver {
+  box-shadow: 0 0 5px rgba(0, 0, 0, 0.5);
+}
+
+/* Peg colors for feedback - these could override the generic background-color */
+.correctPeg {
+  background-color: #000000 !important; /* Black */
+}
+
+.wrongPositionPeg {
+  background-color: #FFFFFF !important; /* White */
+}
+
+.emptyPeg {
+  background-color: #e9ecef !important;
+}
+
+.transparentPeg {
+  background-color: transparent !important;
+} 
