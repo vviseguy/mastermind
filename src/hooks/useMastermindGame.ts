@@ -16,9 +16,9 @@ const useMastermindGame = (
   const {
     gameBoard,
     setGameBoard,
-    gameMode,
+    gameMode: _gameMode, // Mark as deliberately unused
     gameOver,
-    won,
+    won: _won, // Mark as deliberately unused
     solutionCount,
     allSolutions,
     getGameState,

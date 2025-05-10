@@ -1,5 +1,5 @@
 import { useState, useCallback } from 'react';
-import { GameMode, Peg, FeedbackPeg, GameState, GameRules } from '../types/mastermind';
+import { GameMode, Peg, FeedbackPeg, GameState } from '../types/mastermind';
 import { GameBoard } from '../models/GameBoard';
 import { Guess } from '../models/Guess';
 import { 

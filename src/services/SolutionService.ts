@@ -9,7 +9,7 @@ import {
  */
 export class SolutionService {
   private solutions: Set<string>;
-  private readonly codeLength: number;
+  private readonly codeLength: number = 4; // Initialize with default value
 
   /**
    * Creates a SolutionService with all possible solutions based on game rules
@@ -44,19 +44,14 @@ export class SolutionService {
     return result;
   }
 
-  constructor(initialSolutions: Peg[][]) {
-    if (initialSolutions.length) {
-      // Validate all solutions have the same length
-      this.codeLength = initialSolutions[0].length;
-      if (!initialSolutions.every(solution => solution.length === this.codeLength)) {
-        throw new Error('All solutions must have the same length');
-      }
-    }
-
-    
-
-    // Initialize with provided solutions
-    this.solutions = new Set(initialSolutions.map(code => this.codeToString(code)));
+  /**
+   * Create a solution service with a set of possible solutions
+   */
+  constructor(
+    initialSolutions: Peg[][]
+  ) {
+    this.solutions = new Set(initialSolutions.map(this.codeToString));
+    this.codeLength = initialSolutions[0]?.length || 4; // Update from constructor
   }
 
   /**
@@ -288,12 +283,5 @@ export class SolutionService {
     // Update the final solution set
     this.solutions = currentSolutions;
     return optimalResponses;
-  }
-
-  /**
-   * Convert a feedback string back to an array
-   */
-  private stringToFeedback(str: string): FeedbackPeg[] {
-    return str.split(',') as FeedbackPeg[];
   }
 } 

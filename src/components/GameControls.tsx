@@ -1,7 +1,7 @@
 import React from 'react';
 import styles from './styles/GameControls.module.css';
 import { FontAwesomeIcon } from '@fortawesome/react-fontawesome';
-import { faDragon, faChessBoard, faRotateRight, faEye, faEyeSlash, faLightbulb } from '@fortawesome/free-solid-svg-icons';
+import { faDragon, faChessBoard, faRotateRight, faEye, faLightbulb } from '@fortawesome/free-solid-svg-icons';
 
 interface GameControlsProps {
   onReset: () => void;

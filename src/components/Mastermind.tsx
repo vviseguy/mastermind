@@ -1,5 +1,5 @@
 import React, { useState, useEffect, useRef } from 'react';
-import { Peg, FeedbackPeg, GameState, SolutionGroupsType } from '../types/mastermind';
+import { Peg, FeedbackPeg } from '../types/mastermind';
 import GuessRow from './GuessRow';
 import ColorSelector from './ColorSelector';
 import GameControls from './GameControls';
@@ -27,8 +27,6 @@ const Mastermind: React.FC = () => {
     selectedFeedback,
     isDragMode,
     isExplorerActive,
-    possibleSolutions,
-    possibleSolutionsCount,
     setSelectedColor,
     setSelectedFeedback,
     handlePegClick,

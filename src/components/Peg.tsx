@@ -22,7 +22,7 @@ interface PegComponentProps {
 
 const PegComponent: React.FC<PegComponentProps> = ({
   color,
-  id,
+  id: _id,
   onClick,
   isActive = false,
   isSelectable = false,

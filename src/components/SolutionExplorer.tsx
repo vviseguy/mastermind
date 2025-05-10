@@ -1,7 +1,6 @@
 import React, { useState, useMemo } from 'react';
-import { FeedbackPeg, GameBoard, GameRules, Peg, SolutionGroup, SolutionGroupsType } from '../types/mastermind';
+import { FeedbackPeg, GameBoard, GameRules, Peg } from '../types/mastermind';
 import PegComponent from './Peg';
-import { evaluateGuess, sortFeedback } from '../utils/gameLogic';
 import styles from './styles/SolutionExplorer.module.css';
 import { SolutionService } from '../services/SolutionService';
 

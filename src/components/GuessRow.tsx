@@ -1,5 +1,5 @@
 import React from 'react';
-import { GuessRow as GuessRowType, FeedbackPeg as FeedbackPegType, Peg as PegType } from '../types/mastermind';
+import { FeedbackPeg as FeedbackPegType, Peg as PegType } from '../types/mastermind';
 import PegComponent from './Peg';
 import { FontAwesomeIcon } from '@fortawesome/react-fontawesome';
 import { faTrash } from '@fortawesome/free-solid-svg-icons';
