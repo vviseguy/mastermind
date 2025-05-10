@@ -1,43 +1,44 @@
 // Color options for the game
-export type PegColor = 'red' | 'blue' | 'green' | 'yellow' | 'purple' | 'orange' | 'empty';
+export type Peg = 'red' | 'blue' | 'green' | 'yellow' | 'purple' | 'orange' | 'empty';
 
 // Feedback types
-export type FeedbackPegValue = 'correct' | 'wrongPosition' | 'incorrect' | 'empty';
-
-// A single peg in a code
-export interface Peg {
-  color: PegColor;
-  id: number;
-}
-
-// A row representing a guess and its feedback
-export interface GuessRow {
-  guess: Peg[];
-  feedback: FeedbackPegValue[];
-  id: number;
-}
+export type FeedbackPeg = 'correct' | 'wrongPosition' | 'incorrect' | 'empty';
 
 // Game modes
 export type GameMode = 'normal' | 'evil' | 'explorer';
 
-// Game state
-export interface GameState {
-  secretCode: Peg[];
-  guesses: GuessRow[];
-  currentGuess: Peg[];
-  gameMode: GameMode;
-  codeLength: number;
-  maxGuesses: number;
-  availableColors: PegColor[];
-  gameOver: boolean;
-  won: boolean;
-  possibleSolutions: PegColor[][];
-  possibleSolutionsCount: number;
+export interface GuessRow {
+  pegs: Peg[];
+  feedback: FeedbackPeg[];
 }
 
-// Possible groups of solutions in Evil mode
 export interface SolutionGroup {
-  feedback: FeedbackPegValue[];
-  solutions: PegColor[][];
+  feedback: FeedbackPeg[];
+  solutions: Peg[][];
   count: number;
-} 
+}
+
+// Type for solution groups - can be either a SolutionGroup array or a 2D Peg array
+export type SolutionGroupsType = SolutionGroup[] | Peg[][];
+
+export interface GameState {
+  secretCode: Peg[];
+  board: GameBoard;
+  gameMode: GameMode;
+  gameRules: GameRules;
+  gameOver: boolean;
+  won: boolean;
+}
+
+export interface GameRules {
+  codeLength: number;
+  maxGuesses: number;
+  availableColors: Peg[];
+}
+
+export interface GameBoard {
+  guesses: {
+    pegs: Peg[];
+    feedback: FeedbackPeg[];
+  }[];
+}

@@ -1,84 +1,81 @@
 import React from 'react';
-import { GameMode } from '../types/mastermind';
-import { FontAwesomeIcon } from '@fortawesome/react-fontawesome';
-import { faUndo, faCheck, faRandom, faSearch, faDragon, faGamepad } from '@fortawesome/free-solid-svg-icons';
 import styles from './styles/GameControls.module.css';
+import { FontAwesomeIcon } from '@fortawesome/react-fontawesome';
+import { faDragon, faChessBoard, faRotateRight, faEye, faEyeSlash, faLightbulb } from '@fortawesome/free-solid-svg-icons';
 
 interface GameControlsProps {
-  onNewGame: () => void;
-  onCheckGuess: () => void;
-  onChangeMode: (mode: GameMode) => void;
+  onReset: () => void;
+  onToggleMode: () => void;
   onToggleExplorer: () => void;
-  currentMode: GameMode;
+  gameMode: 'normal' | 'evil' | 'explorer';
   isExplorerActive: boolean;
-  isGuessComplete: boolean;
   isGameOver: boolean;
-  possibleSolutionsCount: number;
+  hasWon: boolean;
 }
 
 const GameControls: React.FC<GameControlsProps> = ({
-  onNewGame,
-  onCheckGuess,
-  onChangeMode,
+  onReset,
+  onToggleMode,
   onToggleExplorer,
-  currentMode,
+  gameMode,
   isExplorerActive,
-  isGuessComplete,
   isGameOver,
-  possibleSolutionsCount
+  hasWon
 }) => {
   return (
     <div className={styles.container}>
-      <div className={styles.modeSelector}>
+      <div className={styles.controlsHeader}>
+        <h3>Game Controls</h3>
+      </div>
+      
+      <div className={styles.controlsGrid}>
         <button 
-          className={currentMode === 'normal' ? styles.modeButtonActive : styles.modeButtonInactive}
-          onClick={() => onChangeMode('normal')}
-          title="Normal Mastermind"
+          className={`${styles.controlButton} ${styles.newGameButton}`}
+          onClick={onReset}
+          title="Start a new game"
         >
-          <FontAwesomeIcon icon={faGamepad} className={styles.iconMargin} />
-          <span>Normal</span>
+          <FontAwesomeIcon icon={faRotateRight} className={styles.buttonIcon} />
+          <div className={styles.buttonContent}>
+            <span className={styles.buttonValue}>New Game</span>
+          </div>
         </button>
+        
         <button 
-          className={currentMode === 'evil' ? styles.modeButtonActive : styles.modeButtonInactive}
-          onClick={() => onChangeMode('evil')}
-          title="Evil Mastermind"
+          className={`${styles.controlButton} ${gameMode === 'evil' ? styles.evilModeButton : styles.normalModeButton}`}
+          onClick={onToggleMode}
+          title={gameMode === 'normal' ? 'Switch to Evil Mastermind' : 'Switch to Normal Mode'}
         >
-          <FontAwesomeIcon icon={faDragon} className={styles.iconMargin} />
-          <span>Evil</span>
+          <FontAwesomeIcon 
+            icon={gameMode === 'evil' ? faDragon : faChessBoard} 
+            className={styles.buttonIcon} 
+          />
+          <div className={styles.buttonContent}>
+            <span className={styles.buttonLabel}>Mode</span>
+            <span className={styles.buttonValue}>{gameMode === 'evil' ? 'Evil' : 'Normal'}</span>
+          </div>
+        </button>
+        
+        <button 
+          className={`${styles.controlButton} ${isExplorerActive ? styles.explorerActiveButton : styles.explorerInactiveButton}`}
+          onClick={onToggleExplorer}
+          title={isExplorerActive ? 'Hide Solution Explorer' : 'Show Solution Explorer'}
+        >
+          <FontAwesomeIcon 
+            icon={isExplorerActive ? faLightbulb : faEye} 
+            className={styles.buttonIcon} 
+          />
+          <div className={styles.buttonContent}>
+            <span className={styles.buttonLabel}>Explorer</span>
+            <span className={styles.buttonValue}>{isExplorerActive ? 'Active' : 'Hidden'}</span>
+          </div>
         </button>
       </div>
       
-      <div className={styles.toggleContainer}>
-        <button 
-          className={isExplorerActive ? styles.toggleButtonActive : styles.toggleButtonInactive}
-          onClick={onToggleExplorer}
-          title="Toggle Explorer Mode"
-        >
-          <FontAwesomeIcon icon={faSearch} className={styles.iconMargin} />
-          <span>Explorer {isExplorerActive ? 'ON' : 'OFF'}</span>
-        </button>
-      </div>
-
-      <div className={styles.buttonRow}>
-        <button
-          className={styles.newGameButton}
-          onClick={onNewGame}
-          title="New Game"
-        >
-          <FontAwesomeIcon icon={faRandom} className={styles.iconMargin} />
-          <span>New Game</span>
-        </button>
-
-        <button
-          className={isGuessComplete && !isGameOver ? styles.checkButtonEnabled : styles.checkButtonDisabled}
-          onClick={isGuessComplete && !isGameOver ? onCheckGuess : undefined}
-          disabled={!isGuessComplete || isGameOver}
-          title="Check Guess"
-        >
-          <FontAwesomeIcon icon={faCheck} className={styles.iconMargin} />
-          <span>Check</span>
-        </button>
-      </div>
+      {isGameOver && (
+        <div className={`${styles.gameOverMessage} ${hasWon ? styles.winMessage : styles.loseMessage}`}>
+          {hasWon ? 'You won!' : 'Game over!'}
+        </div>
+      )}
     </div>
   );
 };

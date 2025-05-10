@@ -1,7 +1,7 @@
-import { FeedbackPegValue, PegColor, SolutionGroup } from '../types/mastermind';
+import { FeedbackPeg, Peg, SolutionGroup } from '../types/mastermind';
 
 // Helper function to sort feedback pegs consistently
-export const sortFeedback = (feedback: FeedbackPegValue[]): FeedbackPegValue[] => {
+export const sortFeedback = (feedback: FeedbackPeg[]): FeedbackPeg[] => {
   const correctPegs = feedback.filter(peg => peg === 'correct');
   const wrongPositionPegs = feedback.filter(peg => peg === 'wrongPosition');
   const incorrectPegs = feedback.filter(peg => peg === 'incorrect');
@@ -11,8 +11,8 @@ export const sortFeedback = (feedback: FeedbackPegValue[]): FeedbackPegValue[] =
 };
 
 // Generate a random code
-export const generateRandomCode = (codeLength: number, availableColors: PegColor[]): PegColor[] => {
-  const code: PegColor[] = [];
+export const generateRandomCode = (codeLength: number, availableColors: Peg[]): Peg[] => {
+  const code: Peg[] = [];
   for (let i = 0; i < codeLength; i++) {
     const randomIndex = Math.floor(Math.random() * (availableColors.length - 1)); // -1 to exclude 'empty'
     code.push(availableColors[randomIndex]);
@@ -21,7 +21,7 @@ export const generateRandomCode = (codeLength: number, availableColors: PegColor
 };
 
 // Check if two color arrays are the same
-export const areCodesEqual = (code1: PegColor[], code2: PegColor[]): boolean => {
+export const areCodesEqual = (code1: Peg[], code2: Peg[]): boolean => {
   if (code1.length !== code2.length) return false;
   
   for (let i = 0; i < code1.length; i++) {
@@ -32,8 +32,8 @@ export const areCodesEqual = (code1: PegColor[], code2: PegColor[]): boolean => 
 };
 
 // Evaluate a guess against a code
-export const evaluateGuess = (guess: PegColor[], code: PegColor[]): FeedbackPegValue[] => {
-  const feedback: FeedbackPegValue[] = [];
+export const evaluateGuess = (guess: Peg[], code: Peg[]): FeedbackPeg[] => {
+  const feedback: FeedbackPeg[] = [];
   const codeTemp = [...code];
   const guessTemp = [...guess];
   
@@ -42,18 +42,18 @@ export const evaluateGuess = (guess: PegColor[], code: PegColor[]): FeedbackPegV
     if (guessTemp[i] === codeTemp[i]) {
       feedback.push('correct');
       // Use a special marker that can't be in the original colors
-      codeTemp[i] = 'used' as unknown as PegColor;
-      guessTemp[i] = 'checked' as unknown as PegColor;
+      codeTemp[i] = 'used' as unknown as Peg;
+      guessTemp[i] = 'checked' as unknown as Peg;
     }
   }
   
   // Then find wrong positions
   for (let i = 0; i < guessTemp.length; i++) {
-    if (guessTemp[i] !== ('checked' as unknown as PegColor)) {
+    if (guessTemp[i] !== ('checked' as unknown as Peg)) {
       const index = codeTemp.findIndex(c => c === guessTemp[i]);
       if (index !== -1) {
         feedback.push('wrongPosition');
-        codeTemp[index] = 'used' as unknown as PegColor;
+        codeTemp[index] = 'used' as unknown as Peg;
       } else {
         // This color doesn't exist in the code (or all occurrences have been used)
         feedback.push('incorrect');
@@ -66,11 +66,11 @@ export const evaluateGuess = (guess: PegColor[], code: PegColor[]): FeedbackPegV
 };
 
 // Generate all possible color combinations
-export const generateAllPossibleCodes = (codeLength: number, availableColors: PegColor[]): PegColor[][] => {
+export const generateAllPossibleCodes = (codeLength: number, availableColors: Peg[]): Peg[][] => {
   const colors = availableColors.filter(color => color !== 'empty');
-  const result: PegColor[][] = [];
+  const result: Peg[][] = [];
   
-  const generateCombinations = (current: PegColor[] = [], depth: number = 0) => {
+  const generateCombinations = (current: Peg[] = [], depth: number = 0) => {
     if (depth === codeLength) {
       result.push([...current]);
       return;
@@ -88,10 +88,10 @@ export const generateAllPossibleCodes = (codeLength: number, availableColors: Pe
 
 // Filter solutions based on a guess and its feedback
 export const filterSolutions = (
-  solutions: PegColor[][], 
-  guess: PegColor[], 
-  feedback: FeedbackPegValue[] | FeedbackPegValue
-): PegColor[][] => {
+  solutions: Peg[][], 
+  guess: Peg[], 
+  feedback: FeedbackPeg[] | FeedbackPeg
+): Peg[][] => {
   // Ensure feedback is an array
   const feedbackArray = Array.isArray(feedback) ? feedback : [feedback];
   
@@ -124,8 +124,8 @@ export const filterSolutions = (
 
 // Group solutions by possible feedback
 export const groupSolutionsByFeedback = (
-  solutions: PegColor[][], 
-  guess: PegColor[]
+  solutions: Peg[][], 
+  guess: Peg[]
 ): SolutionGroup[] => {
   const groups: Record<string, SolutionGroup> = {};
   
@@ -151,9 +151,9 @@ export const groupSolutionsByFeedback = (
 
 // Get the evil feedback for a guess (the one that preserves the most possible solutions)
 export const getEvilFeedback = (
-  solutions: PegColor[][], 
-  guess: PegColor[]
-): { feedback: FeedbackPegValue[], remainingSolutions: PegColor[][] } => {
+  solutions: Peg[][], 
+  guess: Peg[]
+): { feedback: FeedbackPeg[], remainingSolutions: Peg[][] } => {
   const groups = groupSolutionsByFeedback(solutions, guess);
   
   if (groups.length === 0) {
@@ -171,10 +171,10 @@ export const getEvilFeedback = (
 
 // Calculate all possible solutions given a series of guesses and their feedback
 export const calculatePossibleSolutions = (
-  guesses: { guess: PegColor[], feedback: FeedbackPegValue[] }[],
+  guesses: { guess: Peg[], feedback: FeedbackPeg[] }[],
   codeLength: number,
-  availableColors: PegColor[]
-): PegColor[][] => {
+  availableColors: Peg[]
+): Peg[][] => {
   // Start with all possible codes
   const allCodes = generateAllPossibleCodes(codeLength, availableColors.filter(c => c !== 'empty'));
   

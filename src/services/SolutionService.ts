@@ -1,238 +1,299 @@
-import { FeedbackPegValue, PegColor, SolutionGroup } from '../types/mastermind';
+import { FeedbackPeg, GameRules, Peg, SolutionGroup } from '../types/mastermind';
 import { 
   evaluateGuess, 
-  filterSolutions, 
-  generateAllPossibleCodes, 
-  groupSolutionsByFeedback as groupByFeedback 
+  sortFeedback
 } from '../utils/gameLogic';
-import { GameBoard } from '../models/GameBoard';
-import { Guess } from '../models/Guess';
 
 /**
  * Service for handling solution calculations and grouping
  */
 export class SolutionService {
+  private solutions: Set<string>;
+  private readonly codeLength: number;
+
   /**
-   * Calculate possible solutions based on previous guesses and their feedback
+   * Creates a SolutionService with all possible solutions based on game rules
    */
-  static calculatePossibleSolutions(
-    guesses: { guess: PegColor[], feedback: FeedbackPegValue[] }[], 
-    codeLength: number, 
-    availableColors: PegColor[]
-  ): PegColor[][] {
-    // Start with all possible codes
-    const allCodes = generateAllPossibleCodes(
-      codeLength, 
-      availableColors.filter(c => c !== 'empty')
-    );
-    
-    // No guesses, return all possible codes
-    if (guesses.length === 0) {
-      return allCodes;
-    }
-    
-    // Filter solutions based on each guess and its feedback
-    return guesses.reduce((solutions, { guess, feedback }) => {
-      return filterSolutions(solutions, guess, feedback);
-    }, allCodes);
+  public static create(gameRules: GameRules): SolutionService {
+    const { codeLength, availableColors } = gameRules;
+    const allPossibleCodes = SolutionService.generateAllPossibleCodesArray(codeLength, availableColors);
+    return new SolutionService(allPossibleCodes);
   }
 
   /**
-   * Group possible solutions by the feedback they would give to a specific guess
+   * Generate all possible code combinations as a 2D array
    */
-  static groupSolutionsByFeedback(solutions: PegColor[][], guess: PegColor[]): SolutionGroup[] {
-    return groupByFeedback(solutions, guess);
-  }
+  private static generateAllPossibleCodesArray(length: number, colors: Peg[]): Peg[][] {
+    const result: Peg[][] = [];
 
-  /**
-   * Calculate and update solution groups for a given game board
-   */
-  static updateSolutionGroups(board: GameBoard): SolutionGroup[] {
-    if (board.guesses.length === 0) {
-      return [];
-    }
-
-    // Calculate possible solutions up to the last guess
-    let possibleSolutions: PegColor[][] = [];
+    colors = colors.filter(c => c !== 'empty');
     
-    if (board.guesses.length === 1) {
-      // If there's only one guess, start with all possible solutions
-      possibleSolutions = generateAllPossibleCodes(
-        board.codeLength,
-        board.availableColors.filter(c => c !== 'empty')
-      );
-    } else {
-      // Otherwise, calculate based on all guesses except the last one
-      const processedGuesses = board.guesses.slice(0, -1).map(g => ({
-        guess: g.toColorArray(),
-        feedback: g.feedback
-      }));
+    const generate = (current: Peg[], position: number) => {
+      if (position === length) {
+        result.push([...current]);
+        return;
+      }
       
-      possibleSolutions = this.calculatePossibleSolutions(
-        processedGuesses,
-        board.codeLength,
-        board.availableColors
+      for (const color of colors) {
+        current[position] = color;
+        generate(current, position + 1);
+      }
+    };
+    
+    generate(Array(length).fill('empty' as Peg), 0);
+    return result;
+  }
+
+  constructor(initialSolutions: Peg[][]) {
+    if (initialSolutions.length) {
+      // Validate all solutions have the same length
+      this.codeLength = initialSolutions[0].length;
+      if (!initialSolutions.every(solution => solution.length === this.codeLength)) {
+        throw new Error('All solutions must have the same length');
+      }
+    }
+
+    
+
+    // Initialize with provided solutions
+    this.solutions = new Set(initialSolutions.map(code => this.codeToString(code)));
+  }
+
+  /**
+   * Get the current number of possible solutions
+   */
+  get solutionCount(): number {
+    return this.solutions.size;
+  }
+
+  /**
+   * Get all current solutions
+   */
+  get allSolutions(): Peg[][] {
+    return Array.from(this.solutions).map(code => this.stringToCode(code));
+  }
+
+  /**
+   * Get the code length used by this service
+   */
+  get length(): number {
+    return this.codeLength;
+  }
+
+  /**
+   * Apply a guess and its feedback to filter the solution set
+   * @returns The number of solutions remaining after filtering
+   */
+  applyGuessAndFeedback(guess: Peg[], feedback: FeedbackPeg[]): number {
+    if (guess.length !== this.codeLength) {
+      throw new Error(`Guess must have length ${this.codeLength}`);
+    }
+    if (feedback.length !== this.codeLength) {
+      throw new Error(`Feedback must have length ${this.codeLength}`);
+    }
+    feedback = sortFeedback(feedback);
+
+    const matchingSolutions = new Set<string>();
+    
+    for (const solution of this.solutions) {
+      const solutionCode = this.stringToCode(solution);
+      const solutionFeedback = evaluateGuess(guess, solutionCode);
+      
+      // Check if the feedback matches
+      if (this.areFeedbackEqual(solutionFeedback, feedback)) {
+        matchingSolutions.add(solution);
+      }
+    }
+
+    this.solutions = matchingSolutions;
+    return this.solutions.size;
+  }
+
+  /**
+   * Get all solutions that would match a given guess with a specific feedback
+   * @returns A SolutionGroup object containing the feedback, solutions, and count
+   */
+  getSolutionsForGuessAndFeedback(guess: Peg[], feedback: FeedbackPeg[]): SolutionGroup {
+    if (guess.length !== this.codeLength) {
+      throw new Error(`Guess must have length ${this.codeLength}`);
+    }
+
+    const matchingSolutions: Peg[][] = [];
+    
+    for (const solution of this.solutions) {
+      const solutionCode = this.stringToCode(solution);
+      const solutionFeedback = evaluateGuess(guess, solutionCode);
+      
+      if (this.areFeedbackEqual(solutionFeedback, feedback)) {
+        matchingSolutions.push(solutionCode);
+      }
+    }
+
+    return {
+      feedback,
+      solutions: matchingSolutions,
+      count: matchingSolutions.length
+    };
+  }
+
+  /**
+   * Get all possible feedback patterns for a given guess with their group sizes
+   * @returns Array of SolutionGroup objects
+   */
+  getPossibleFeedbackPatterns(guess: Peg[]): SolutionGroup[] {
+    if (guess.length !== this.codeLength) {
+      throw new Error(`Guess must have length ${this.codeLength}`);
+    }
+
+    const patternsMap = new Map<string, { feedback: FeedbackPeg[], solutions: Peg[][], count: number }>();
+    
+    for (const solution of this.solutions) {
+      const solutionCode = this.stringToCode(solution);
+      const feedback = evaluateGuess(guess, solutionCode);
+      const feedbackKey = this.feedbackToString(feedback);
+      
+      if (!patternsMap.has(feedbackKey)) {
+        patternsMap.set(feedbackKey, { 
+          feedback, 
+          solutions: [], 
+          count: 0 
+        });
+      }
+      const group = patternsMap.get(feedbackKey)!;
+      group.solutions.push(solutionCode);
+      group.count++;
+    }
+
+    return Array.from(patternsMap.values());
+  }
+
+  /**
+   * Reset the solution set to all possible combinations
+   */
+  reset(codeLength: number, availableColors: Peg[]): void {
+    this.solutions = new Set(this.generateAllPossibleCodes(codeLength, availableColors));
+  }
+
+  /**
+   * Generate all possible code combinations
+   */
+  private generateAllPossibleCodes(length: number, colors: Peg[]): string[] {
+    const result: string[] = [];
+    
+    const generate = (current: Peg[], position: number) => {
+      if (position === length) {
+        result.push(this.codeToString(current));
+        return;
+      }
+      
+      for (const color of colors) {
+        current[position] = color;
+        generate(current, position + 1);
+      }
+    };
+    
+    generate(Array(length).fill('empty' as Peg), 0);
+    return result;
+  }
+
+  /**
+   * Convert a code array to a string for efficient storage
+   */
+  private codeToString(code: Peg[]): string {
+    return code.join(',');
+  }
+
+  /**
+   * Convert a string back to a code array
+   */
+  private stringToCode(str: string): Peg[] {
+    return str.split(',') as Peg[];
+  }
+
+  /**
+   * Convert feedback to a string for efficient comparison
+   */
+  private feedbackToString(feedback: FeedbackPeg[]): string {
+    return feedback.sort().join(',');
+  }
+
+  /**
+   * Compare two feedback arrays for equality
+   */
+  private areFeedbackEqual(feedback1: FeedbackPeg[], feedback2: FeedbackPeg[]): boolean {
+    if (feedback1.length !== feedback2.length) return false;
+    
+    const sorted1 = [...feedback1].sort();
+    const sorted2 = [...feedback2].sort();
+    
+    return sorted1.every((value, index) => value === sorted2[index]);
+  }
+
+  /**
+   * Process a series of guesses and responses, ensuring responses are optimal
+   * @returns Array of optimal responses for each guess
+   */
+  processGuessSeries(guesses: Peg[][], responses: FeedbackPeg[][]): FeedbackPeg[][] {
+    if (guesses.length !== responses.length) {
+      throw new Error('Number of guesses must match number of responses');
+    }
+
+    const optimalResponses: FeedbackPeg[][] = [];
+    let currentSolutions = new Set(this.solutions);
+
+    for (let i = 0; i < guesses.length; i++) {
+      const guess = guesses[i];
+      const response = responses[i];
+
+      if (guess.length !== this.codeLength) {
+        throw new Error(`Guess at index ${i} must have length ${this.codeLength}`);
+      }
+      if (response.length !== this.codeLength) {
+        throw new Error(`Response at index ${i} must have length ${this.codeLength}`);
+      }
+
+      // Get all possible feedback patterns as SolutionGroups
+      const patterns = this.getPossibleFeedbackPatterns(guess);
+      
+      // Find the largest group
+      const largestGroup = patterns.reduce(
+        (max, group) => group.count > max.count ? group : max, 
+        { feedback: [] as FeedbackPeg[], solutions: [], count: 0 }
       );
-    }
-    
-    // Get the last guess and calculate all possible feedback groups for it
-    const lastGuess = board.guesses[board.guesses.length - 1];
-    const lastGuessColors = lastGuess.toColorArray();
-    
-    return this.groupSolutionsByFeedback(possibleSolutions, lastGuessColors);
-  }
+      
+      // Find if the current response is in one of our pattern groups
+      const currentResponseGroup = patterns.find(group => 
+        this.areFeedbackEqual(group.feedback, response)
+      );
 
-  /**
-   * Calculate solution groups for a specific guess against current possible solutions
-   */
-  static predictFeedback(board: GameBoard, guessColors: PegColor[]): SolutionGroup[] {
-    // Ensure we have a valid guess with no empty colors
-    if (guessColors.some(color => color === 'empty')) {
-      return [];
-    }
-    
-    // Calculate possible solutions based on all previous guesses
-    const processedGuesses = board.guesses.map(g => ({
-      guess: g.toColorArray(),
-      feedback: g.feedback
-    }));
-    
-    const possibleSolutions = this.calculatePossibleSolutions(
-      processedGuesses,
-      board.codeLength,
-      board.availableColors
-    );
-    
-    // Calculate all possible feedback groups for the current guess
-    return this.groupSolutionsByFeedback(possibleSolutions, guessColors);
-  }
+      // Use the largest group's response if current group is smaller
+      const optimalResponse = (!currentResponseGroup || currentResponseGroup.count < largestGroup.count)
+        ? largestGroup.feedback
+        : response;
 
-  /**
-   * Find optimal guesses that would most effectively split the solution space
-   */
-  static findOptimalGuesses(possibleSolutions: PegColor[][], maxResults: number = 5): Array<{
-    guess: PegColor[];
-    maxGroupSize: number;
-    distribution: { [key: string]: number };
-  }> {
-    if (possibleSolutions.length === 0) {
-      // Standard first guesses for 4-peg Mastermind when no info is available
-      return [
-        { 
-          guess: ['red', 'red', 'blue', 'blue'] as PegColor[], 
-          maxGroupSize: 256,
-          distribution: {}
-        },
-        { 
-          guess: ['red', 'green', 'blue', 'yellow'] as PegColor[], 
-          maxGroupSize: 256,
-          distribution: {}
-        },
-        { 
-          guess: ['red', 'yellow', 'red', 'yellow'] as PegColor[], 
-          maxGroupSize: 256,
-          distribution: {}
+      optimalResponses.push(optimalResponse);
+
+      // Update solution set for next iteration
+      const newSolutions = new Set<string>();
+      for (const solution of currentSolutions) {
+        const solutionCode = this.stringToCode(solution);
+        const solutionFeedback = evaluateGuess(guess, solutionCode);
+        if (this.areFeedbackEqual(solutionFeedback, optimalResponse)) {
+          newSolutions.add(this.codeToString(solutionCode));
         }
-      ];
+      }
+      currentSolutions = newSolutions;
     }
 
-    // We'll take a sample of possible solutions to evaluate if there are too many
-    const solutionsToEvaluate = possibleSolutions.length <= 25 
-      ? possibleSolutions 
-      : possibleSolutions.slice(0, 25);
-    
-    const evaluatedGuesses: Array<{
-      guess: PegColor[];
-      maxGroupSize: number;
-      distribution: { [key: string]: number };
-    }> = [];
-    
-    for (const candidateGuess of solutionsToEvaluate) {
-      // Calculate how this guess would split the solution space
-      const distribution: { [key: string]: number } = {};
-      let maxGroupSize = 0;
-      
-      for (const solution of possibleSolutions) {
-        const feedback = evaluateGuess(candidateGuess, solution);
-        const feedbackKey = feedback.join(',');
-        
-        distribution[feedbackKey] = (distribution[feedbackKey] || 0) + 1;
-        maxGroupSize = Math.max(maxGroupSize, distribution[feedbackKey]);
-      }
-      
-      evaluatedGuesses.push({
-        guess: candidateGuess,
-        maxGroupSize,
-        distribution
-      });
-    }
-    
-    // Sort by max group size (smallest first) - better guesses split solutions more evenly
-    return evaluatedGuesses
-      .sort((a, b) => a.maxGroupSize - b.maxGroupSize)
-      .slice(0, maxResults);
+    // Update the final solution set
+    this.solutions = currentSolutions;
+    return optimalResponses;
   }
 
   /**
-   * Recalculate possible solutions after a guess has been modified
+   * Convert a feedback string back to an array
    */
-  static recalculateAfterGuessChange(board: GameBoard, guessIndex: number): {
-    updatedBoard: GameBoard;
-    solutionGroups: SolutionGroup[];
-  } {
-    if (guessIndex < 0 || guessIndex >= board.guesses.length) {
-      return { updatedBoard: board, solutionGroups: [] };
-    }
-    
-    let updatedBoard = board;
-    const updatedGuesses = [...board.guesses];
-    
-    // Process guesses up to and including the modified guess
-    // This will be mode-specific
-    if (board.gameMode === 'normal') {
-      // In normal mode, recalculate feedback for each guess up to the modified one
-      for (let i = 0; i <= guessIndex; i++) {
-        const secretColors = board.secretCode.map(peg => peg.color);
-        const guessColors = updatedGuesses[i].toColorArray();
-        const feedback = evaluateGuess(guessColors, secretColors);
-        updatedGuesses[i] = updatedGuesses[i].setFeedback(feedback);
-      }
-    } else if (board.gameMode === 'explorer') {
-      // In explorer mode, we keep the feedback as is, unless it's the modified guess
-      if (guessIndex < updatedGuesses.length) {
-        // In explorer mode, keep feedback as-is (user controlled)
-      }
-    }
-    
-    // Calculate possible solutions using all guesses up to modified one
-    const processedGuesses = updatedGuesses.slice(0, guessIndex + 1).map(g => ({
-      guess: g.toColorArray(),
-      feedback: g.feedback
-    }));
-    
-    const newPossibleSolutions = this.calculatePossibleSolutions(
-      processedGuesses,
-      board.codeLength,
-      board.availableColors
-    );
-    
-    // Update solution groups
-    const modifiedGuessColors = updatedGuesses[guessIndex].toColorArray();
-    const groups = this.groupSolutionsByFeedback(newPossibleSolutions, modifiedGuessColors);
-    
-    // Create updated board with new possible solutions
-    updatedBoard = new GameBoard(
-      board.secretCode,
-      updatedGuesses,
-      board.gameMode,
-      board.gameOver,
-      board.won,
-      newPossibleSolutions,
-      board.codeLength,
-      board.maxGuesses,
-      board.availableColors
-    );
-    
-    return { updatedBoard, solutionGroups: groups };
+  private stringToFeedback(str: string): FeedbackPeg[] {
+    return str.split(',') as FeedbackPeg[];
   }
 } 

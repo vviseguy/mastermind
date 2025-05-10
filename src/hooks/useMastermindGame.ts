@@ -1,9 +1,7 @@
 import { useCallback } from 'react';
-import { GameMode, PegColor, FeedbackPegValue, SolutionGroup } from '../types/mastermind';
+import { GameMode, Peg, FeedbackPeg, GameState } from '../types/mastermind';
 import { useGameState } from './useGameState';
-import { useSolutionExplorer } from './useSolutionExplorer';
 import { useUIState } from './useUIState';
-import { evaluateGuess } from '../utils/gameLogic';
 
 /**
  * Main hook for the Mastermind game
@@ -12,52 +10,42 @@ const useMastermindGame = (
   initialMode: GameMode = 'normal',
   codeLength: number = 4,
   maxGuesses: number = 10,
-  availableColors: PegColor[] = ['red', 'blue', 'green', 'yellow', 'purple', 'orange', 'empty']
+  availableColors: Peg[] = ['red', 'blue', 'green','yellow', 'purple', 'orange', 'empty']
 ) => {
   // Game state
   const {
     gameBoard,
     setGameBoard,
+    gameMode,
+    gameOver,
+    won,
+    solutionCount,
+    allSolutions,
+    getGameState,
     startNewGame,
     changeMode,
-    setCurrentGuessPeg,
-    modifyPastGuess,
+    setGuessPeg,
     deleteGuess,
     submitGuess,
     pushGuess,
-    pushResponse
+    pushResponse,
+    getPossibleSolutions,
+    getPossibleFeedbackPatterns,
+    processGuessSeries
   } = useGameState(initialMode, codeLength, maxGuesses, availableColors);
 
   // UI state
   const {
     selectedColor,
     selectedFeedback,
-    activePegIndex,
-    activeFeedbackIndex,
     isDragMode,
     isExplorerActive,
     setSelectedColor,
     setSelectedFeedback,
-    setActivePegIndex,
-    setActiveFeedbackIndex,
     toggleDragMode,
     toggleExplorerMode,
     resetUIState
   } = useUIState();
-
-  // Solution explorer
-  const {
-    solutionGroups,
-    currentGuessSolutionGroups,
-    modifiedGuessIndex,
-    setModifiedGuessIndex,
-    updateSolutionGroups,
-    predictFeedback,
-    setFeedbackPeg,
-    recalculateAfterGuessChange,
-    handleApplySolutionFeedback,
-    handleApplyGuess
-  } = useSolutionExplorer(gameBoard, setGameBoard);
 
   // Reset UI state when starting a new game
   const handleStartNewGame = useCallback(() => {
@@ -72,132 +60,51 @@ const useMastermindGame = (
 
   // Handle a peg click in the game board
   const handlePegClick = useCallback((rowIndex: number, pegIndex: number) => {
-    setActivePegIndex(pegIndex);
+    if (rowIndex >= gameBoard.guesses.length) return;
     
-    // Check if rowIndex is beyond current guesses (this shouldn't happen with simplified state)
-    if (rowIndex >= gameBoard.guesses.length) {
-      return;
+    if (selectedColor) {
+      setGuessPeg(pegIndex, selectedColor, rowIndex);
     }
-    
-    if (rowIndex === gameBoard.guesses.length - 1 && !gameBoard.hasCurrentGuessFeedback) {
-      // It's the current guess (last row without feedback)
-      if (selectedColor) {
-        setCurrentGuessPeg(Number(pegIndex), selectedColor);
-      }
-    } else if (isExplorerActive) {
-      // It's a past guess in explorer mode
-      if (selectedColor) {
-        modifyPastGuess(rowIndex, Number(pegIndex), selectedColor);
-        setModifiedGuessIndex(rowIndex);
-      }
-    }
-  }, [gameBoard.guesses.length, gameBoard.hasCurrentGuessFeedback, selectedColor, isExplorerActive, 
-      setActivePegIndex, setCurrentGuessPeg, modifyPastGuess, setModifiedGuessIndex]);
+  }, [gameBoard.guesses.length, selectedColor, setGuessPeg]);
 
   // Handle peg drag and drop
-  const handlePegDrop = useCallback((guessIndex: number, pegIndex: number, color: PegColor) => {
-    // Check if guessIndex is beyond current guesses
-    if (guessIndex >= gameBoard.guesses.length) {
-      return;
-    }
-    
-    if (guessIndex === gameBoard.guesses.length - 1 && !gameBoard.hasCurrentGuessFeedback) {
-      // It's the current guess (last row without feedback)
-      setCurrentGuessPeg(Number(pegIndex), color);
-    } else if (isExplorerActive) {
-      // It's a past guess in explorer mode
-      modifyPastGuess(guessIndex, Number(pegIndex), color);
-      setModifiedGuessIndex(guessIndex);
-    }
-  }, [gameBoard.guesses.length, gameBoard.hasCurrentGuessFeedback, isExplorerActive, 
-      setCurrentGuessPeg, modifyPastGuess, setModifiedGuessIndex]);
+  const handlePegDrop = useCallback((guessIndex: number, pegIndex: number, color: Peg) => {
+    if (guessIndex >= gameBoard.guesses.length) return;
+    setGuessPeg(pegIndex, color, guessIndex);
+  }, [gameBoard.guesses.length, setGuessPeg]);
 
   /**
    * Handle applying a solution feedback pattern
    */
-  const handleSolutionFeedback = useCallback((feedback: FeedbackPegValue[]) => {
-    if (isCurrentGuessComplete() && !gameBoard.gameOver) {
+  const handleSolutionFeedback = useCallback((feedback: FeedbackPeg[]) => {
+    if (isCurrentGuessComplete() && !gameOver) {
       // For current guess, use the normal submit mechanism
-      submitGuess(feedback);
-    } else if (modifiedGuessIndex !== null && modifiedGuessIndex < gameBoard.guesses.length) {
-      // For past guesses in explorer mode
-      pushResponse(feedback, modifiedGuessIndex);
-      recalculateAfterGuessChange(modifiedGuessIndex);
-      setModifiedGuessIndex(null);
+      pushResponse(feedback);
     } else if (gameBoard.guesses.length > 0) {
       // Always override the most recent guess response if one exists
-      pushResponse(feedback);
-      recalculateAfterGuessChange(gameBoard.guesses.length - 1);
+      pushResponse(feedback, gameBoard.guesses.length - 1);
     }
-  }, [gameBoard.guesses.length, gameBoard.gameOver, isCurrentGuessComplete, modifiedGuessIndex, 
-      pushResponse, recalculateAfterGuessChange, setModifiedGuessIndex, submitGuess]);
+  }, [gameBoard.guesses.length, gameOver, isCurrentGuessComplete, pushResponse]);
 
   /**
    * Handle applying a guess from the solution explorer
    */
-  const handleSolutionGuess = useCallback((guess: PegColor[]) => {
-    if (gameBoard.gameOver) return;
-    
-    // Use our pushGuess function to handle guesses
-    const newPegs = guess.map((color, _) => color);
-    pushGuess(newPegs);
-  }, [gameBoard.gameOver, pushGuess]);
+  const handleSolutionGuess = useCallback((guess: Peg[]) => {
+    if (gameOver) return;
+    pushGuess(guess);
+  }, [gameOver, pushGuess]);
 
   /**
    * Submit a guess with optional custom feedback
    */
   const handleSubmitGuess = useCallback(() => {
-    if (isCurrentGuessComplete() && !gameBoard.gameOver) {
-      // First, get the current guess colors
-      const colors = gameBoard.currentGuess.toColorArray();
-      
-      // Then, determine the feedback based on game mode
-      let feedback: FeedbackPegValue[] = [];
-      
-      if (gameBoard.gameMode === 'normal') {
-        // For normal mode, evaluate against the secret code
-        const secretColors = gameBoard.secretCode.map(peg => peg.color);
-        feedback = evaluateGuess ? evaluateGuess(colors, secretColors) : [];
-      }
-      
-      // If we have calculated feedback, use the push methods; otherwise use submit
-      if (feedback.length > 0) {
-        // First apply the response
-        pushResponse(feedback);
-        
-        // Ensure solution groups are updated after submitting
-        if (isExplorerActive) {
-          updateSolutionGroups();
-        }
-      } else {
-        // For evil/explorer mode, use the standard submitGuess
-        submitGuess();
-        
-        // Ensure solution groups are updated after submitting
-        if (isExplorerActive) {
-          updateSolutionGroups();
-        }
-      }
-      
-      setActivePegIndex(null);
+    if (isCurrentGuessComplete() && !gameOver) {
+      submitGuess();
     }
-  }, [gameBoard, isCurrentGuessComplete, isExplorerActive, setActivePegIndex, 
-      submitGuess, pushResponse, updateSolutionGroups, evaluateGuess]);
+  }, [gameOver, isCurrentGuessComplete, submitGuess]);
 
-  // Convert to the legacy format for compatibility with existing components
-  const gameState = {
-    secretCode: gameBoard.secretCode,
-    guesses: gameBoard.guesses.map(g => g.toLegacyGuessRow()),
-    currentGuess: gameBoard.currentGuess.pegs,
-    gameMode: gameBoard.gameMode,
-    codeLength: gameBoard.codeLength,
-    maxGuesses: gameBoard.maxGuesses,
-    availableColors: gameBoard.availableColors,
-    gameOver: gameBoard.gameOver,
-    won: gameBoard.won,
-    possibleSolutions: gameBoard.possibleSolutions,
-    possibleSolutionsCount: gameBoard.possibleSolutions.length
-  };
+  // Get the current game state that conforms to the GameState interface
+  const gameState: GameState = getGameState();
 
   return {
     // State
@@ -205,13 +112,10 @@ const useMastermindGame = (
     gameBoard,
     selectedColor,
     selectedFeedback,
-    activePegIndex,
-    activeFeedbackIndex,
-    solutionGroups,
-    currentGuessSolutionGroups,
-    modifiedGuessIndex,
     isDragMode,
     isExplorerActive,
+    possibleSolutions: allSolutions,
+    possibleSolutionsCount: solutionCount,
     
     // UI actions
     setSelectedColor,
@@ -220,28 +124,22 @@ const useMastermindGame = (
     toggleExplorerMode,
     
     // Game actions
-    setCurrentGuessPeg: handlePegClick,
+    handlePegClick,
     handlePegDrop,
-    setFeedbackPeg,
     submitGuess: handleSubmitGuess,
     startNewGame: handleStartNewGame,
     changeMode,
     isCurrentGuessComplete,
-    modifyPastGuess,
-    recalculateAfterGuessChange,
-    updateSolutionGroups,
     deleteGuess,
-    predictFeedback,
     
-    // Solution explorer actions - renamed for clarity
+    // Solution explorer actions
     handleApplySolutionFeedback: handleSolutionFeedback,
     handleApplyGuess: handleSolutionGuess,
+    getPossibleSolutions,
+    getPossibleFeedbackPatterns,
+    processGuessSeries,
     
-    // New functions
-    pushGuess,
-    pushResponse,
-    
-    // For compatibility - redirects to proper functions
+    // For compatibility
     setGameState: setGameBoard
   };
 };

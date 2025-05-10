@@ -1,6 +1,6 @@
 import React from 'react';
 import { Peg as PegType } from '../types/mastermind';
-import Peg from './Peg';
+import PegComponent from './Peg';
 
 interface SecretCodeProps {
   secretCode: PegType[];
@@ -16,10 +16,7 @@ const SecretCode: React.FC<SecretCodeProps> = ({
   // Create hidden or revealed pegs
   const pegsToDisplay = isRevealed 
     ? secretCode 
-    : Array(codeLength).fill(null).map((_, i) => ({
-        color: 'empty',
-        id: i
-      }));
+    : Array(codeLength).fill('empty' as PegType);
 
   const containerStyle: React.CSSProperties = {
     display: 'flex',
@@ -54,9 +51,9 @@ const SecretCode: React.FC<SecretCodeProps> = ({
     <div style={containerStyle} data-testid="secret-code">
       <div style={labelStyle}>Secret Code:</div>
       <div style={pegContainerStyle}>
-        {pegsToDisplay.map((peg, index) => (
+        {pegsToDisplay.map((pegColor, index) => (
           isRevealed ? (
-            <Peg key={`secret-${index}`} peg={peg} />
+            <PegComponent key={`secret-${index}`} color={pegColor} id={index} />
           ) : (
             <div key={`hidden-${index}`} style={coverStyle} />
           )

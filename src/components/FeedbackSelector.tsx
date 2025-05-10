@@ -1,6 +1,6 @@
 import React from 'react';
-import { FeedbackPegValue as FeedbackPegType } from '../types/mastermind';
-import FeedbackPeg from './FeedbackPeg';
+import { FeedbackPeg as FeedbackPegType } from '../types/mastermind';
+import Peg from './Peg';
 
 interface FeedbackSelectorProps {
   onSelectFeedback: (type: FeedbackPegType) => void;
@@ -47,7 +47,7 @@ const FeedbackSelector: React.FC<FeedbackSelectorProps> = ({
       <div style={optionsContainerStyle}>
         {feedbackTypes.map((type, index) => (
           <div key={`feedback-option-${index}`} style={{ margin: '0 5px' }}>
-            <FeedbackPeg
+            <Peg
               type={type}
               onClick={() => onSelectFeedback(type)}
               isActive={selectedFeedback === type}

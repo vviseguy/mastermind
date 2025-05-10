@@ -1,11 +1,18 @@
 import React from 'react';
-import { GuessRow as GuessRowType, Peg as PegType, FeedbackPegValue as FeedbackPegType, PegColor } from '../types/mastermind';
-import Peg from './Peg';
+import { GuessRow as GuessRowType, FeedbackPeg as FeedbackPegType, Peg as PegType } from '../types/mastermind';
+import PegComponent from './Peg';
 import { FontAwesomeIcon } from '@fortawesome/react-fontawesome';
 import { faTrash } from '@fortawesome/free-solid-svg-icons';
 
+// Extended GuessRow type for our component
+interface CustomGuessRow {
+  id: number;
+  pegs: PegType[];
+  feedback: FeedbackPegType[];
+}
+
 interface GuessRowProps {
-  row: GuessRowType;
+  row: CustomGuessRow;
   isActive: boolean;
   isEditable: boolean;
   codeLength: number;
@@ -15,7 +22,7 @@ interface GuessRowProps {
   isDragMode?: boolean;
   onDeleteRow?: () => void;
   isCurrentGuess?: boolean;
-  onPegDrop?: (pegIndex: number, color: PegColor) => void;
+  onPegDrop?: (pegIndex: number, color: PegType) => void;
   onFeedbackPegDrop?: (pegIndex: number, feedbackType: FeedbackPegType) => void;
 }
 
@@ -34,9 +41,9 @@ const GuessRow: React.FC<GuessRowProps> = ({
   onFeedbackPegDrop
 }) => {
   // Create empty pegs if needed
-  const guessDisplay = [...row.guess];
+  const guessDisplay = [...row.pegs];
   while (guessDisplay.length < codeLength) {
-    guessDisplay.push({ color: 'empty', id: guessDisplay.length });
+    guessDisplay.push('empty');
   }
 
   // Create empty feedback if needed and ensure they're sorted (correct first, then wrongPosition)
@@ -103,19 +110,27 @@ const GuessRow: React.FC<GuessRowProps> = ({
   const isFeedbackSelectable = isExplorerMode && !isCurrentGuess;
 
   // Handle peg drop for drag and drop mode
-  const handlePegDrop = (index: number, data: string) => {
+  const handlePegDrop = (index: number, event: React.DragEvent<HTMLDivElement>) => {
     if (!onPegDrop || (!isExplorerMode && !isEditable)) return;
+    
+    const data = event.dataTransfer.getData('text/plain');
     
     // Check if the dropped data is a feedback peg
     if (data.startsWith('feedback:')) return;
     
+    // Validate that the color is a valid PegColor
+    const validColors = ['red', 'blue', 'green', 'yellow', 'purple', 'orange', 'empty'];
+    if (!validColors.includes(data)) return;
+    
     // Data is a regular color
-    onPegDrop(index, data as PegColor);
+    onPegDrop(index, data as PegType);
   };
   
   // Handle feedback peg drop for drag and drop mode
-  const handleFeedbackPegDrop = (index: number, data: string) => {
+  const handleFeedbackPegDrop = (index: number, event: React.DragEvent<HTMLDivElement>) => {
     if (!onFeedbackPegDrop || !isFeedbackSelectable) return;
+    
+    const data = event.dataTransfer.getData('text/plain');
     
     // Handle feedback peg drops
     if (data.startsWith('feedback:')) {
@@ -127,6 +142,8 @@ const GuessRow: React.FC<GuessRowProps> = ({
       onFeedbackPegDrop(index, 'empty');
     }
   };
+
+  console.log(row);
 
   return (
     <div style={rowStyle} data-testid={`guess-row-${row.id}`}>
@@ -151,28 +168,29 @@ const GuessRow: React.FC<GuessRowProps> = ({
       )}
 
       <div style={guessContainerStyle}>
-        {guessDisplay.map((peg, index) => (
-          <Peg
+        {guessDisplay.map((pegColor, index) => (
+          <PegComponent
             key={`peg-${index}`}
-            peg={peg}
+            color={pegColor}
+            id={index}
             onClick={isSelectable && onPegClick ? () => onPegClick(index) : undefined}
             isActive={isActive}
             isSelectable={isSelectable}
             isDragMode={isDragMode}
-            onDrop={isDragMode ? (color) => handlePegDrop(index, color) : undefined}
+            onDrop={isDragMode ? (event) => handlePegDrop(index, event) : undefined}
           />
         ))}
       </div>
-      
       <div style={feedbackContainerStyle}>
         {feedbackDisplay.map((type, index) => (
-          <Peg
+          <PegComponent
             key={`feedback-${index}`}
-            peg={{ color: 'empty', id: 0 }}
+            color="empty"
+            id={index}
             onClick={isFeedbackSelectable && onFeedbackPegClick ? () => onFeedbackPegClick(index) : undefined}
             isSelectable={isFeedbackSelectable}
             isDragMode={isDragMode}
-            onDrop={isDragMode && isFeedbackSelectable ? (feedbackType) => handleFeedbackPegDrop(index, feedbackType) : undefined}
+            onDrop={isDragMode && isFeedbackSelectable ? (event) => handleFeedbackPegDrop(index, event) : undefined}
             pegSize="small"
             isFeedbackPeg={true}
             feedbackType={type}

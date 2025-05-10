@@ -1,18 +1,15 @@
 import React, { useState, useMemo } from 'react';
-import { FeedbackPegValue, PegColor, SolutionGroup } from '../types/mastermind';
-import Peg from './Peg';
+import { FeedbackPeg, GameBoard, GameRules, Peg, SolutionGroup, SolutionGroupsType } from '../types/mastermind';
+import PegComponent from './Peg';
 import { evaluateGuess, sortFeedback } from '../utils/gameLogic';
 import styles from './styles/SolutionExplorer.module.css';
+import { SolutionService } from '../services/SolutionService';
 
 interface SolutionExplorerProps {
-  solutionGroups: SolutionGroup[];
-  totalSolutions: number;
-  currentGuessGroups?: SolutionGroup[];
-  onSelectFeedback?: (feedback: FeedbackPegValue[]) => void;
-  onSelectGuess?: (guess: PegColor[]) => void;
-  gameMode: 'normal' | 'evil' | 'explorer';
-  isCurrentGuess: boolean;
-  allPossibleGuesses?: PegColor[][];
+  gameBoard: GameBoard;
+  gameRules: GameRules;
+  onSelectFeedback?: (feedback: FeedbackPeg[]) => void;
+  onSelectGuess?: (guess: Peg[]) => void;
 }
 
 enum TabType {
@@ -21,124 +18,93 @@ enum TabType {
 }
 
 interface OptimalGuess {
-  guess: PegColor[];
+  guess: Peg[];
   maxGroupSize: number;
-  distribution: { [key: string]: number };
+  // distribution: { [key: string]: number };
 }
 
 const SolutionExplorer: React.FC<SolutionExplorerProps> = ({
-  solutionGroups,
-  totalSolutions,
-  currentGuessGroups = [],
+  gameBoard,
+  gameRules,
   onSelectFeedback,
   onSelectGuess,
-  gameMode,
-  isCurrentGuess,
-  allPossibleGuesses = []
 }) => {
   const [activeTab, setActiveTab] = useState<TabType>(TabType.Guesses);
-  
-  // Use current guess groups when available and viewing current guess, otherwise use submitted guess groups
-  const groupsToDisplay = isCurrentGuess && currentGuessGroups.length > 0 
-    ? currentGuessGroups 
-    : solutionGroups;
+
+
   
   // Calculate optimal guesses - those with the smallest maximum group size
-  const optimalGuesses = useMemo(() => {
+  const [optimalGuesses, totalSolutions] = useMemo(() => {
     // If we have solution groups, use their solutions as the foundation
-    const possibleSolutions = solutionGroups.length > 0 && solutionGroups[0].solutions 
-      ? solutionGroups[0].solutions 
-      : [];
-    
-    // If no solutions (like on first turn), provide some standard first guesses
-    if (possibleSolutions.length === 0) {
-      // Standard first guesses for 4-peg Mastermind
-      return [
-        { 
-          guess: ['red', 'red', 'blue', 'blue'] as PegColor[], 
-          maxGroupSize: 256,
-          distribution: {}
-        },
-        { 
-          guess: ['red', 'green', 'blue', 'yellow'] as PegColor[], 
-          maxGroupSize: 256,
-          distribution: {}
-        },
-        { 
-          guess: ['red', 'yellow', 'red', 'yellow'] as PegColor[], 
-          maxGroupSize: 256,
-          distribution: {}
-        }
-      ];
-    }
+    const solutionService = SolutionService.create(gameRules);
+    solutionService.processGuessSeries(
+      gameBoard.guesses.filter(g => g.feedback.length > 0).map(g => g.pegs),
+      gameBoard.guesses.filter(g => g.feedback.length > 0).map(g => g.feedback)
+    );
+    const possibleSolutions = solutionService.allSolutions;
 
-    // For real game play, evaluate more guesses to find optimal ones
-    // We'll take a sample of possible solutions to evaluate
-    const solutionsToEvaluate = possibleSolutions.length <= 25 
-      ? possibleSolutions 
-      : possibleSolutions.slice(0, 25);
-    
-    const evaluatedGuesses: OptimalGuess[] = [];
-    
-    for (const candidateGuess of solutionsToEvaluate) {
-      // Calculate how this guess would split the solution space
-      const distribution: { [key: string]: number } = {};
-      let maxGroupSize = 0;
-      
-      for (const solution of possibleSolutions) {
-        // Use the proper evaluateGuess function for consistent results with the main game logic
-        const feedback = evaluateGuess(candidateGuess, solution);
-        const feedbackKey = feedback.join(',');
-        
-        distribution[feedbackKey] = (distribution[feedbackKey] || 0) + 1;
-        maxGroupSize = Math.max(maxGroupSize, distribution[feedbackKey]);
-      }
-      
-      evaluatedGuesses.push({
-        guess: candidateGuess,
-        maxGroupSize,
-        distribution
-      });
-    }
+
+    const currSolutionService = new SolutionService(possibleSolutions)
+    const sortedGuesses:OptimalGuess[] = possibleSolutions
+      .map(guess => ({
+        guess,
+        maxGroupSize: currSolutionService
+          .getPossibleFeedbackPatterns(guess)
+          .reduce((m, g) => Math.max(m, g.count), 0)
+      }))
+      .sort((a, b) =>
+        a.maxGroupSize - b.maxGroupSize ||
+        a.guess.join(' ').localeCompare(b.guess.join(' '))
+      )
     
     // Sort by max group size (smallest first) - better guesses split solutions more evenly
     // This matches the Evil Mastermind's behavior, which picks the largest group
-    return evaluatedGuesses
-      .sort((a, b) => a.maxGroupSize - b.maxGroupSize)
-      .slice(0, 5);
-  }, [solutionGroups]);
+    return [sortedGuesses.slice(0, 12), possibleSolutions.length];
+  }, [gameRules, gameBoard]);
+
+  const normalizedGroups = useMemo(() => {
+    const solutionService = SolutionService.create(gameRules);
+    solutionService.processGuessSeries(
+      gameBoard.guesses.filter(g => !g.pegs.includes('empty')).slice(0, -1).map(g => g.pegs),
+      gameBoard.guesses.filter(g => !g.pegs.includes('empty')).slice(0, -1).map(g => g.feedback)
+    );
+    return solutionService
+    .getPossibleFeedbackPatterns(gameBoard.guesses[gameBoard.guesses.length - 1].pegs)
+    .sort((a, b) => b.count - a.count);
+  }, [gameRules, gameBoard]);
   
   const handleTabChange = (tab: TabType) => {
     setActiveTab(tab);
   };
   
-  const handleSelectFeedback = (feedback: FeedbackPegValue[]) => {
+  const handleSelectFeedback = (feedback: FeedbackPeg[]) => {
     if (onSelectFeedback) {
       onSelectFeedback(feedback);
     }
   };
   
-  const handleSelectGuess = (guess: PegColor[]) => {
+  const handleSelectGuess = (guess: Peg[]) => {
     if (onSelectGuess) {
       onSelectGuess(guess);
     }
   };
   
   const renderResponseTab = () => {
-    if (groupsToDisplay.length === 0) {
+    if (normalizedGroups.length === 0) {
       return <div>No response data available.</div>;
     }
     
     return (
       <div className={styles.groupsContainer}>
-        {groupsToDisplay.map((group, index) => {
+        {normalizedGroups.map((group, index) => {
           return (
             <div key={`response-${index}`} className={styles.groupItem}>
               <div className={styles.feedbackContainer}>
                 {group.feedback.map((type, idx) => (
-                  <Peg
+                  <PegComponent
                     key={`fb-peg-${idx}`}
-                    peg={{ color: 'empty', id: idx }}
+                    color="empty"
+                    id={idx}
                     pegSize="small"
                     isFeedbackPeg={true}
                     feedbackType={type}
@@ -174,9 +140,10 @@ const SolutionExplorer: React.FC<SolutionExplorerProps> = ({
             <div key={`guess-${index}`} className={styles.groupItem}>
               <div className={styles.guessContainer}>
                 {guessData.guess.map((color, idx) => (
-                  <Peg
+                  <PegComponent
                     key={`guess-peg-${idx}`}
-                    peg={{ color, id: idx }}
+                    color={color}
+                    id={idx}
                     pegSize="small"
                   />
                 ))}
@@ -185,7 +152,7 @@ const SolutionExplorer: React.FC<SolutionExplorerProps> = ({
                 Max solutions: {guessData.maxGroupSize}
               </div>
               <div className={styles.solutionCount} title="This shows how many different feedback patterns are possible">
-                {Object.values(guessData.distribution).length} feedback groups
+                {/* {Object.values(guessData.distribution).length} feedback groups */}
               </div>
               <button 
                 className={styles.button}

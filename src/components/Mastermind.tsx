@@ -1,5 +1,5 @@
 import React, { useState, useEffect, useRef } from 'react';
-import { GuessRow as GuessRowType, PegColor, FeedbackPegValue, Peg as PegType } from '../types/mastermind';
+import { Peg, FeedbackPeg, GameState, SolutionGroupsType } from '../types/mastermind';
 import GuessRow from './GuessRow';
 import ColorSelector from './ColorSelector';
 import GameControls from './GameControls';
@@ -9,6 +9,15 @@ import useMastermindGame from '../hooks/useMastermindGame';
 import styles from './styles/Mastermind.module.css';
 import layoutStyles from './styles/MastermindLayout.module.css';
 import uiStyles from './styles/MastermindUI.module.css';
+import { FontAwesomeIcon } from '@fortawesome/react-fontawesome';
+import { faCheck } from '@fortawesome/free-solid-svg-icons';
+
+// Custom type for our internal row representation
+interface CustomGuessRow {
+  id: number;
+  pegs: Peg[];
+  feedback: FeedbackPeg[];
+}
 
 const Mastermind: React.FC = () => {
   const {
@@ -16,34 +25,26 @@ const Mastermind: React.FC = () => {
     gameBoard,
     selectedColor,
     selectedFeedback,
-    activePegIndex,
-    solutionGroups,
+    isDragMode,
+    isExplorerActive,
+    possibleSolutions,
+    possibleSolutionsCount,
     setSelectedColor,
     setSelectedFeedback,
-    setCurrentGuessPeg,
-    setFeedbackPeg,
-    submitGuess,
+    handlePegClick,
+    handlePegDrop,
     startNewGame,
     changeMode,
     isCurrentGuessComplete,
-    modifyPastGuess,
-    recalculateAfterGuessChange,
-    updateSolutionGroups,
     deleteGuess,
-    predictFeedback,
     handleApplySolutionFeedback,
     handleApplyGuess,
-    pushGuess,
-    pushResponse,
-    toggleDragMode,
     toggleExplorerMode,
-    isDragMode,
-    isExplorerActive,
-    currentGuessSolutionGroups
+    submitGuess
   } = useMastermindGame();
   
   // State to track if a past guess was modified and needs recalculation
-  const [modifiedGuessIndex, setModifiedGuessIndex] = useState<number | null>(null);
+  const [modifiedGuessIndex] = useState<number | null>(null);
   
   // Ref to track the latest state for drag and drop operations
   const stateRef = useRef({
@@ -60,20 +61,6 @@ const Mastermind: React.FC = () => {
       modifiedGuessIndex
     };
   }, [gameState, isExplorerActive, modifiedGuessIndex]);
-  
-  // Update solution groups when the component mounts or when guesses change
-  useEffect(() => {
-    if (gameState.guesses.length > 0) {
-      updateSolutionGroups();
-    }
-  }, [gameState.guesses, updateSolutionGroups]);
-
-  // Update solution groups when game mode changes
-  useEffect(() => {
-    if (gameState.guesses.length > 0) {
-      updateSolutionGroups();
-    }
-  }, [gameState.gameMode, updateSolutionGroups]);
 
   // Reset explorer mode when starting a new game
   useEffect(() => {
@@ -89,139 +76,77 @@ const Mastermind: React.FC = () => {
       setSelectedFeedback(null);
     }
   }, [isDragMode, setSelectedColor, setSelectedFeedback]);
-  
-  // Update solution groups for current unsubmitted guess when it changes
-  useEffect(() => {
-    if (isExplorerActive && isCurrentGuessComplete() && !gameState.gameOver) {
-      const groups = predictFeedback(gameState.currentGuess.map(peg => peg.color));
-      // This is just for UI display, existing state is already updated via the hook
-    }
-  }, [gameState.currentGuess, gameState.gameOver, isCurrentGuessComplete, isExplorerActive, predictFeedback]);
 
   // Handle a click on a peg in a guess
-  const handlePegClick = (rowIndex: number, pegIndex: number) => {
+  const handleLocalPegClick = (rowIndex: number, pegIndex: number) => {
     if (!selectedColor) return;
-    
-    if (rowIndex === gameState.guesses.length - 1 && !gameBoard.hasCurrentGuessFeedback) {
-      // It's the current guess (last guess without feedback) - update directly with new color
-      setCurrentGuessPeg(pegIndex, selectedColor);
-    } else if (isExplorerActive) {
-      // It's a past guess in explorer mode
-      modifyPastGuess(rowIndex, pegIndex, selectedColor);
-      setModifiedGuessIndex(rowIndex);
-    }
+    handlePegClick(rowIndex, pegIndex);
   };
   
   // Handle peg drop in drag and drop mode
-  const handlePegDrop = (guessIndex: number, pegIndex: number, color: string | PegColor) => {
+  const handleLocalPegDrop = (guessIndex: number, pegIndex: number, color: string | Peg) => {
     // Convert the color value to PegColor
-    const pegColor = String(color) as PegColor;
-    
-    if (guessIndex === gameState.guesses.length - 1 && !gameBoard.hasCurrentGuessFeedback) {
-      // It's the current guess (last guess without feedback) - update directly
-      setCurrentGuessPeg(pegIndex, pegColor);
-    } else if (isExplorerActive && guessIndex < gameState.guesses.length) {
-      // It's a past guess in explorer mode
-      modifyPastGuess(guessIndex, pegIndex, pegColor);
-      setModifiedGuessIndex(guessIndex);
-    }
+    const pegColor = String(color) as Peg;
+    handlePegDrop(guessIndex, pegIndex, pegColor);
   };
   
   // Handle feedback peg drop in drag and drop mode
-  const handleFeedbackPegDrop = (guessIndex: number, pegIndex: number, feedbackData: string | FeedbackPegValue) => {
+  const handleFeedbackPegDrop = (guessIndex: number, pegIndex: number, feedbackData: string | FeedbackPeg) => {
     // Convert the feedback value to FeedbackPegValue
-    let feedback: FeedbackPegValue;
+    let feedback: FeedbackPeg;
     
     if (typeof feedbackData === 'string' && feedbackData.startsWith('feedback:')) {
-      feedback = feedbackData.split(':')[1] as FeedbackPegValue;
+      feedback = feedbackData.split(':')[1] as FeedbackPeg;
     } else {
-      feedback = feedbackData as FeedbackPegValue;
+      feedback = feedbackData as FeedbackPeg;
     }
     
     // In explorer mode, we can set the feedback pegs
-    if (isExplorerActive && guessIndex < gameState.guesses.length) {
-      // Get the current feedback for this guess
-      const currentFeedback = [...gameState.guesses[guessIndex].feedback];
-      let newFeedback = [...currentFeedback];
-      
-      // In explorer mode, feedback is represented by counts, not positions
-      // So we need to add/remove feedback pegs and re-sort them
-      if (pegIndex < newFeedback.length) {
-        // Remove the old value first
-        newFeedback.splice(pegIndex, 1);
-      }
-      
-      // Add the new feedback value
-      newFeedback.push(feedback);
-      
-      // Sort and ensure we don't exceed the code length
-      const sortedFeedback = newFeedback.sort((a, b) => {
-        const order = { 'correct': 0, 'wrongPosition': 1, 'incorrect': 2, 'empty': 3 };
-        return order[a] - order[b];
-      }).slice(0, gameState.codeLength);
-      
-      // Use pushResponse to ensure consistent behavior with overriding
-      pushResponse(sortedFeedback, guessIndex);
-      
-      // Since we're directly modifying a past guess, mark it as modified
-      setModifiedGuessIndex(guessIndex);
-    }
-  };
-  
-  // Handle confirmation after modifying a past guess
-  const handleConfirmGuessChange = () => {
-    if (modifiedGuessIndex !== null) {
-      recalculateAfterGuessChange(modifiedGuessIndex);
-      setModifiedGuessIndex(null);
-    }
-  };
-  
-  // Handle deleting a guess
-  const handleDeleteGuess = (guessIndex: number) => {
-    deleteGuess(guessIndex);
-    if (modifiedGuessIndex === guessIndex) {
-      setModifiedGuessIndex(null);
-    } else if (modifiedGuessIndex !== null && modifiedGuessIndex > guessIndex) {
-      setModifiedGuessIndex(modifiedGuessIndex - 1);
+    if (isExplorerActive && guessIndex < gameBoard.guesses.length) {
+      // Create a new feedback array with the updated value at the specified index
+      const newFeedback = [...gameBoard.guesses[guessIndex].feedback];
+      newFeedback[pegIndex] = feedback;
+      handleApplySolutionFeedback(newFeedback);
     }
   };
 
   const renderGuessRows = () => {
     // Show only the existing guesses - no separate current guess row
-    return gameState.guesses.map((row, index) => {
-      const isLastGuess = index === gameState.guesses.length - 1;
+    return gameBoard.guesses.map((row, index) => {
+      const isLastGuess = index === gameBoard.guesses.length - 1;
       // In explorer mode, all rows are editable
       // In normal modes, only the last guess is editable if it has no feedback
       const isEditable = (isLastGuess && !gameBoard.hasCurrentGuessFeedback && !gameState.gameOver) || isExplorerActive;
-      const isDeletable = index < gameState.guesses.length - 1 || // Allow deleting previous guesses
+      const isDeletable = index < gameBoard.guesses.length - 1 || // Allow deleting previous guesses
                          (isLastGuess && gameBoard.hasCurrentGuessFeedback) || // Allow deleting last guess if it has feedback
-                         (isLastGuess && !guessIsEmpty(row.guess)); // Allow deleting if not empty
+                         (isLastGuess && !row.pegs.every(peg => peg === 'empty')); // Allow deleting if not empty
+      
+      const customRow: CustomGuessRow = {
+        id: index,
+        pegs: row.pegs,
+        feedback: row.feedback
+      };
       
       return (
         <GuessRow
-          key={`guess-row-${row.id}`}
-          row={row}
+          key={`guess-row-${index}`}
+          row={customRow}
           isActive={isLastGuess || index === modifiedGuessIndex}
           isEditable={isEditable}
-          codeLength={gameState.codeLength}
-          onPegClick={(pegIndex: number) => handlePegClick(index, pegIndex)}
+          codeLength={gameState.gameRules.codeLength}
+          onPegClick={(pegIndex: number) => handleLocalPegClick(index, pegIndex)}
           onFeedbackPegClick={isExplorerActive && !isLastGuess ? 
-            (pegIndex: number) => setFeedbackPeg(index, pegIndex, selectedFeedback || 'empty') : undefined}
+            () => setSelectedFeedback(selectedFeedback || 'empty') : undefined}
           isExplorerMode={isExplorerActive}
           isDragMode={isDragMode}
-          onDeleteRow={isDeletable ? () => handleDeleteGuess(index) : undefined}
+          onDeleteRow={isDeletable ? () => deleteGuess(index) : undefined}
           isCurrentGuess={isLastGuess && !gameBoard.hasCurrentGuessFeedback}
-          onPegDrop={(pegIndex: number, color: PegColor) => handlePegDrop(index, pegIndex, color)}
+          onPegDrop={(pegIndex: number, color: Peg) => handleLocalPegDrop(index, pegIndex, color)}
           onFeedbackPegDrop={isExplorerActive && (!isLastGuess || gameBoard.hasCurrentGuessFeedback) ? 
-            (pegIndex: number, type: FeedbackPegValue) => handleFeedbackPegDrop(index, pegIndex, type) : undefined}
+            (pegIndex: number, type: FeedbackPeg) => handleFeedbackPegDrop(index, pegIndex, type) : undefined}
         />
       );
     });
-  };
-
-  // Helper function to check if a guess is empty
-  const guessIsEmpty = (guess: PegType[]) => {
-    return guess.every(peg => peg.color === 'empty');
   };
 
   const renderGameMessage = () => {
@@ -238,11 +163,6 @@ const Mastermind: React.FC = () => {
     );
   };
 
-  // Determine when to show solution explorer - Whenever explorer mode is active
-  const shouldShowSolutionExplorer = () => {
-    return isExplorerActive;
-  };
-
   return (
     <div className={styles.mastermind}>
       <h1 className={layoutStyles.title}>Mastermind</h1>
@@ -252,7 +172,7 @@ const Mastermind: React.FC = () => {
         <SecretCode
           secretCode={gameState.secretCode}
           isRevealed={gameState.gameOver}
-          codeLength={gameState.codeLength}
+          codeLength={gameState.gameRules.codeLength}
         />
 
         {/* Game Message */}
@@ -263,62 +183,49 @@ const Mastermind: React.FC = () => {
           {renderGuessRows()}
         </div>
         
-        {/* Show confirmation button when a past guess is modified */}
-        {modifiedGuessIndex !== null && (
+        {/* Submit Button */}
+        {!gameState.gameOver && !isExplorerActive && (
           <button 
-            className={uiStyles.confirmButton}
-            onClick={handleConfirmGuessChange}
+            className={styles.submitButton}
+            onClick={submitGuess}
+            disabled={!isCurrentGuessComplete()}
+            title={!isCurrentGuessComplete() ? "Complete your guess first" : "Submit your guess"}
           >
-            Confirm Changes & Recalculate
+            <FontAwesomeIcon icon={faCheck} className={styles.buttonIcon} />
+            <div className={styles.buttonContent}>
+              <span className={styles.buttonValue}>Submit Guess</span>
+            </div>
           </button>
         )}
         
         {/* Game Controls */}
         <GameControls
-          onNewGame={startNewGame}
-          onCheckGuess={() => {
-            if (isCurrentGuessComplete() && !gameState.gameOver) {
-              submitGuess();
-              
-              // Ensure solution groups are updated after submitting a guess
-              if (isExplorerActive) {
-                updateSolutionGroups();
-              }
-            }
-          }}
-          onChangeMode={changeMode}
+          onReset={startNewGame}
+          onToggleMode={() => changeMode(gameState.gameMode === 'normal' ? 'evil' : 'normal')}
           onToggleExplorer={toggleExplorerMode}
-          currentMode={gameState.gameMode}
+          gameMode={gameState.gameMode}
           isExplorerActive={isExplorerActive}
-          isGuessComplete={isCurrentGuessComplete()}
           isGameOver={gameState.gameOver}
-          possibleSolutionsCount={gameState.possibleSolutionsCount}
+          hasWon={gameState.won}
         />
 
-        {/* Unified Solution Explorer */}
-        {shouldShowSolutionExplorer() && (
+        {/* Solution Explorer */}
+        {isExplorerActive && (
           <SolutionExplorer
-            solutionGroups={solutionGroups}
-            currentGuessGroups={currentGuessSolutionGroups}
-            totalSolutions={gameState.possibleSolutionsCount}
+            gameBoard={gameBoard}
+            gameRules={gameState.gameRules}
             onSelectFeedback={handleApplySolutionFeedback}
             onSelectGuess={handleApplyGuess}
-            gameMode={gameState.gameMode}
-            isCurrentGuess={isCurrentGuessComplete() && !gameState.gameOver}
           />
         )}
       </div>
       
-      {/* Color Selector (floating on the side) */}
+      {/* Color Selector */}
       <ColorSelector
-        availableColors={gameState.availableColors}
-        onSelectColor={setSelectedColor}
-        selectedColor={selectedColor}
+        availableColors={gameState.gameRules.availableColors}
+        onColorSelect={setSelectedColor}
         isDragMode={isDragMode}
-        onToggleDragMode={toggleDragMode}
-        isExplorerMode={isExplorerActive}
-        selectedFeedback={selectedFeedback}
-        onSelectFeedback={setSelectedFeedback}
+        selectedColor={selectedColor}
       />
     </div>
   );

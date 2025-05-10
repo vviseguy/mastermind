@@ -1,21 +1,15 @@
 import { useState, useCallback } from 'react';
-import { PegColor, FeedbackPegValue } from '../types/mastermind';
+import { Peg, FeedbackPeg } from '../types/mastermind';
 
 /**
  * Hook for managing UI-related state
  */
 export function useUIState() {
   // Selected color for pegs
-  const [selectedColor, setSelectedColor] = useState<PegColor | null>(null);
+  const [selectedColor, setSelectedColor] = useState<Peg | null>(null);
   
   // Selected feedback for explorer mode
-  const [selectedFeedback, setSelectedFeedback] = useState<FeedbackPegValue | null>(null);
-  
-  // Currently active peg index in current guess
-  const [activePegIndex, setActivePegIndex] = useState<number | null>(null);
-  
-  // Currently active feedback peg in explorer mode
-  const [activeFeedbackIndex, setActiveFeedbackIndex] = useState<number | null>(null);
+  const [selectedFeedback, setSelectedFeedback] = useState<FeedbackPeg | null>(null);
   
   // State to track interaction mode (drag or click)
   const [isDragMode, setIsDragMode] = useState<boolean>(false);
@@ -27,22 +21,14 @@ export function useUIState() {
    * Toggle drag mode
    */
   const toggleDragMode = useCallback(() => {
-    setIsDragMode(prevMode => {
-      const newMode = !prevMode;
-      // In drag mode, clear the selected color and feedback
-      if (newMode) {
-        setSelectedColor(null);
-        setSelectedFeedback(null);
-      }
-      return newMode;
-    });
+    setIsDragMode(prev => !prev);
   }, []);
   
   /**
    * Toggle explorer mode
    */
   const toggleExplorerMode = useCallback(() => {
-    setIsExplorerActive(prevMode => !prevMode);
+    setIsExplorerActive(prev => !prev);
   }, []);
   
   /**
@@ -51,26 +37,34 @@ export function useUIState() {
   const resetUIState = useCallback(() => {
     setSelectedColor(null);
     setSelectedFeedback(null);
-    setActivePegIndex(null);
-    setActiveFeedbackIndex(null);
     setIsDragMode(false);
     setIsExplorerActive(false);
+  }, []);
+  
+  /**
+   * Set the selected color with type checking
+   */
+  const setTypedSelectedColor = useCallback((color: Peg | null) => {
+    setSelectedColor(color);
+  }, []);
+  
+  /**
+   * Set the selected feedback with type checking
+   */
+  const setTypedSelectedFeedback = useCallback((feedback: FeedbackPeg | null) => {
+    setSelectedFeedback(feedback);
   }, []);
   
   return {
     // State
     selectedColor,
     selectedFeedback,
-    activePegIndex,
-    activeFeedbackIndex,
     isDragMode,
     isExplorerActive,
     
     // Setters
-    setSelectedColor,
-    setSelectedFeedback,
-    setActivePegIndex,
-    setActiveFeedbackIndex,
+    setSelectedColor: setTypedSelectedColor,
+    setSelectedFeedback: setTypedSelectedFeedback,
     
     // Actions
     toggleDragMode,

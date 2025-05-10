@@ -1,23 +1,28 @@
 import React, { useRef, useEffect, useState } from 'react';
-import { Peg as PegType, PegColor, FeedbackPegValue as FeedbackPegType } from '../types/mastermind';
+import { Peg as PegType, FeedbackPeg as FeedbackPegType } from '../types/mastermind';
 import styles from './styles/Peg.module.css';
 
-interface PegProps {
-  peg: PegType;
+interface PegComponentProps {
+  color: PegType;
+  id?: number;
   onClick?: () => void;
   isActive?: boolean;
   isSelectable?: boolean;
   isDragMode?: boolean;
-  onDrop?: (data: string) => void;
+  onDrop?: (e: React.DragEvent<HTMLDivElement>) => void;
   onDragStart?: (e: React.DragEvent<HTMLDivElement>) => void;
   isPalettePeg?: boolean;
   pegSize?: 'small' | 'medium' | 'large';
   isFeedbackPeg?: boolean;
   feedbackType?: FeedbackPegType;
+  isDraggable?: boolean;
+  onDragEnd?: (e: React.DragEvent<HTMLDivElement>) => void;
+  onDragOver?: (e: React.DragEvent<HTMLDivElement>) => void;
 }
 
-const Peg: React.FC<PegProps> = ({
-  peg,
+const PegComponent: React.FC<PegComponentProps> = ({
+  color,
+  id,
   onClick,
   isActive = false,
   isSelectable = false,
@@ -27,7 +32,10 @@ const Peg: React.FC<PegProps> = ({
   isPalettePeg = false,
   pegSize = 'medium',
   isFeedbackPeg = false,
-  feedbackType
+  feedbackType,
+  isDraggable = false,
+  onDragEnd,
+  onDragOver
 }) => {
   const [isOver, setIsOver] = useState(false);
   const pegRef = useRef<HTMLDivElement>(null);
@@ -52,7 +60,7 @@ const Peg: React.FC<PegProps> = ({
       classNames.push(styles.activePeg);
     } else if (isFeedbackPeg && feedbackType && (feedbackType === 'correct' || feedbackType === 'wrongPosition')) {
       classNames.push(styles.solidBorder);
-    } else if (peg.color === 'empty' || (isFeedbackPeg && (feedbackType === 'incorrect' || feedbackType === 'empty'))) {
+    } else if (color === 'empty' || (isFeedbackPeg && (feedbackType === 'incorrect' || feedbackType === 'empty'))) {
       classNames.push(styles.dashedBorder);
     } else {
       classNames.push(styles.defaultBorder);
@@ -63,29 +71,34 @@ const Peg: React.FC<PegProps> = ({
       classNames.push(styles.isOver);
     }
     
-    // Color classes for feedback pegs
+    return classNames.join(' ');
+  };
+  
+  // Get appropriate inner peg class
+  const getInnerPegClass = (): string => {
+    // For feedback pegs
     if (isFeedbackPeg && feedbackType) {
       if (feedbackType === 'correct') {
-        classNames.push(styles.correctPeg);
+        return styles.correctPeg;
       } else if (feedbackType === 'wrongPosition') {
-        classNames.push(styles.wrongPositionPeg);
+        return styles.wrongPositionPeg;
       } else if (feedbackType === 'empty' || feedbackType === 'incorrect') {
-        classNames.push(styles.transparentPeg);
+        return styles.transparentPeg;
       }
-    } 
-    // Color for regular pegs
-    else if (peg.color === 'empty') {
-      classNames.push(styles.emptyPeg);
+    }
+    // For regular pegs
+    else if (color === 'empty') {
+      return styles.emptyPeg;
     }
     
-    return classNames.join(' ');
+    return '';
   };
   
   // Set background color for regular pegs (colors that aren't in our CSS)
   const getStyle = (): React.CSSProperties => {
     // For regular colored pegs that aren't empty or feedback pegs
-    if (!isFeedbackPeg && peg.color !== 'empty') {
-      return { backgroundColor: peg.color };
+    if (!isFeedbackPeg && color !== 'empty') {
+      return { backgroundColor: color };
     }
     
     return {};
@@ -120,13 +133,12 @@ const Peg: React.FC<PegProps> = ({
       setIsOver(false);
       
       if (e.dataTransfer) {
-        const data = e.dataTransfer.getData('text/plain');
-        onDrop(data);
+        onDrop(e as unknown as React.DragEvent<HTMLDivElement>);
       }
     };
     
     // Set draggable attribute and add/remove event listeners
-    if (isDragMode) {
+    if (isDragMode || isDraggable) {
       element.setAttribute('draggable', 'true');
     } else {
       element.removeAttribute('draggable');
@@ -145,18 +157,64 @@ const Peg: React.FC<PegProps> = ({
       element.removeEventListener('dragleave', handleDragLeave);
       element.removeEventListener('drop', handleDrop);
     };
-  }, [isDragMode, isSelectable, onDrop]);
+  }, [isDragMode, isDraggable, isSelectable, onDrop]);
   
+  const handleDragStart = (e: React.DragEvent<HTMLDivElement>) => {
+    if ((isDragMode || isDraggable) && onDragStart) {
+      e.dataTransfer.setData('text/plain', color);
+      onDragStart(e);
+    } else if ((isDragMode || isDraggable)) {
+      e.dataTransfer.setData('text/plain', color);
+    }
+  };
+
+  const handleDragEnd = (e: React.DragEvent<HTMLDivElement>) => {
+    if (isDraggable && onDragEnd) {
+      onDragEnd(e);
+    }
+  };
+
+  const handleDrop = (e: React.DragEvent<HTMLDivElement>) => {
+    if (onDrop) {
+      e.preventDefault();
+      onDrop(e);
+    }
+  };
+
+  const handleDragOver = (e: React.DragEvent<HTMLDivElement>) => {
+    if (onDragOver) {
+      e.preventDefault();
+      onDragOver(e);
+    }
+  };
+
+  const handleClick = () => {
+    if (onClick && (isSelectable || isPalettePeg)) {
+      onClick();
+    }
+  };
+
   return (
     <div
       ref={pegRef}
       className={getClassNames()}
       style={getStyle()}
-      onClick={isSelectable && !isDragMode ? onClick : undefined}
-      onDragStart={isDragMode ? onDragStart : undefined}
-      data-testid={`peg-${isFeedbackPeg ? 'feedback-' + feedbackType : peg.color}`}
-    />
+      onClick={handleClick}
+      draggable={isDragMode || isDraggable}
+      onDragStart={handleDragStart}
+      onDragEnd={handleDragEnd}
+      onDrop={handleDrop}
+      onDragOver={handleDragOver}
+      data-testid={`peg-${isFeedbackPeg ? 'feedback-' + feedbackType : color}`}
+    >
+      <div className={`${styles.pegInner} ${getInnerPegClass()}`}>
+        {isFeedbackPeg && feedbackType && (
+          <div className={`${styles.feedbackDot} ${styles[feedbackType]}`} />
+        )}
+      </div>
+    </div>
   );
 };
 
-export default Peg; 
+// Export with the original component name for backward compatibility
+export default PegComponent; 
