@@ -68,28 +68,39 @@ const GuessRow: React.FC<GuessRowProps> = ({
     alignItems: 'center',
     justifyContent: 'center',
     backgroundColor: isActive ? '#f5f5f5' : 'transparent',
-    padding: '8px',
-    margin: '4px 0',
+    padding: '6px',
+    margin: '3px 0',
     borderRadius: '4px',
     transition: 'background-color 0.2s',
-    position: 'relative'
+    position: 'relative',
+    minHeight: '50px' // Ensure consistent height for centering
   };
 
   const guessContainerStyle: React.CSSProperties = {
     display: 'flex',
     justifyContent: 'center',
-    width: '180px' // Fixed width to ensure centering
+    width: '100%', // Take full width to center properly
+    position: 'relative',
+    zIndex: 1 // Ensure guess pegs are above the background
   };
 
   const feedbackContainerStyle: React.CSSProperties = {
     display: 'grid',
     gridTemplateColumns: 'repeat(2, 1fr)',
-    gap: '2px',
-    padding: '4px',
+    gridTemplateRows: 'repeat(2, 1fr)',
+    gap: '1px',
+    padding: '3px',
     backgroundColor: '#ddd',
     borderRadius: '4px',
     position: 'absolute',
-    right: '10px'
+    right: '5px',
+    top: '50%',
+    transform: 'translateY(-50%)',
+    maxWidth: '34px',
+    maxHeight: '34px',
+    alignItems: 'center',
+    justifyItems: 'center',
+    zIndex: 2 // Ensure feedback container is above guess pegs
   };
 
   const trashIconStyle: React.CSSProperties = {

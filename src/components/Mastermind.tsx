@@ -161,6 +161,12 @@ const Mastermind: React.FC = () => {
     );
   };
 
+  // Check if the code should be revealed (game over or a guess with all correct feedback)
+  const isCodeRevealed = gameState.gameOver || gameBoard.guesses.some(guess => 
+    guess.feedback.length === gameState.gameRules.codeLength && 
+    guess.feedback.every(f => f === 'correct')
+  );
+
   return (
     <div className={styles.mastermind}>
       <h1 className={layoutStyles.title}>Mastermind</h1>
@@ -169,7 +175,7 @@ const Mastermind: React.FC = () => {
         {/* Secret Code */}
         <SecretCode
           secretCode={gameState.secretCode}
-          isRevealed={gameState.gameOver}
+          isRevealed={isCodeRevealed}
           codeLength={gameState.gameRules.codeLength}
         />
 

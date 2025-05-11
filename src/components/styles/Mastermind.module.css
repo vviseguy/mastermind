@@ -1,11 +1,30 @@
 .mastermind {
   max-width: 800px;
   margin: 0 auto;
+<<<<<<< HEAD
+  padding: 20px 20px 20px 20px;
+=======
   padding: 20px 60px 20px 60px;
+>>>>>>> 185fb414094daa8dc25d56ffbe58776320c5c8a7
   font-family: Arial, sans-serif;
   position: relative;
 }
 
+<<<<<<< HEAD
+@media (min-width: 769px) {
+  .mastermind {
+    padding: 20px 60px 20px 60px;
+  }
+}
+
+@media (max-width: 768px) {
+  .mastermind {
+    padding-bottom: 120px; /* Add padding for the color palette at the bottom */
+  }
+}
+
+=======
+>>>>>>> 185fb414094daa8dc25d56ffbe58776320c5c8a7
 .gameBoard {
   background-color: #f8f9fa;
   border-radius: 8px;

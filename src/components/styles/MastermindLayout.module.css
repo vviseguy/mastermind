@@ -2,15 +2,28 @@
 .container {
   max-width: 800px;
   margin: 0 auto;
-  padding: 20px 60px 20px 60px; /* Extra padding on the sides for the color selector */
+  padding: 20px 20px 20px 20px;
   font-family: Arial, sans-serif;
-  position: relative; /* For positioning the color selector */
+  position: relative;
+}
+
+@media (min-width: 769px) {
+  .container {
+    padding: 20px 60px 20px 60px; /* Extra padding on the sides for the color selector on desktop */
+  }
 }
 
 .title {
   text-align: center;
   margin-bottom: 20px;
   color: #333;
+  font-size: 1.8rem;
+}
+
+@media (max-width: 480px) {
+  .title {
+    font-size: 1.5rem;
+  }
 }
 
 .board {

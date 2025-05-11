@@ -48,7 +48,13 @@ const PegComponent: React.FC<PegComponentProps> = ({
     classNames.push(styles[pegSize]);
     
     // Margin class
-    classNames.push(isPalettePeg ? styles.palettePeg : styles.gamePeg);
+    if (isPalettePeg) {
+      classNames.push(styles.palettePeg);
+    } else if (isFeedbackPeg) {
+      classNames.push(styles.feedbackPeg);
+    } else {
+      classNames.push(styles.gamePeg);
+    }
     
     // Cursor/interaction classes
     if (isSelectable) {

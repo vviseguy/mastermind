@@ -51,7 +51,7 @@ export function useGameState(
    */
   const bumpState = useCallback((board: GameBoard) => {
     // Preserve the current goal code and guesses
-    const currentGoal = board.secretCode;
+    let currentGoal = board.secretCode;
     const currentGuesses = board.guesses;
     
     if (gameMode === 'evil') {
@@ -72,6 +72,12 @@ export function useGameState(
       optimalResponses.forEach((response, index) => {
         currentGuesses[index].feedback = response;
       });
+      
+      // If there's only one solution left, set it as the secret code
+      if (solutionService.solutionCount === 1) {
+        currentGoal = solutionService.allSolutions[0];
+        console.log("Setting secret code to last remaining solution:", currentGoal);
+      }
     } else if (gameMode === 'normal') {
       // In normal mode, we need to ensure the solution set matches the goal code
       solutionService.reset(board.gameRules.codeLength, filteredColors);
@@ -98,6 +104,7 @@ export function useGameState(
     if (updatedBoard.guesses.length > 0) {
       const currentGuess = updatedBoard.guesses[updatedBoard.guesses.length - 1];
       if (currentGuess.isComplete() && currentGuess.feedback.length > 0) {
+        // Check if all feedback pegs are "correct" (all black pegs)
         const isCorrect = currentGuess.feedback.every(f => f === 'correct');
         const isGameOver = isCorrect || updatedBoard.guesses.length >= updatedBoard.gameRules.maxGuesses;
         setGameOver(isGameOver);
@@ -106,7 +113,7 @@ export function useGameState(
     }
 
     setGameBoard(updatedBoard);
-  }, [gameMode, filteredColors, solutionService]);
+  }, [gameMode, filteredColors, solutionService, evaluateGuess]);
   
   /**
    * Start a new game with the current settings
