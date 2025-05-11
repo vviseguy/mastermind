@@ -1,0 +1,112 @@
+/* Base peg style */
+.peg {
+  border-radius: 50%;
+  transition: all 0.2s;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
+/* Inner peg element */
+.pegInner {
+  width: 100%;
+  height: 100%;
+  border-radius: 50%;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
+/* Peg sizes */
+.small {
+  width: 12px;
+  height: 12px;
+}
+
+.medium {
+  width: 30px;
+  height: 30px;
+}
+
+.large {
+  width: 40px;
+  height: 40px;
+}
+
+/* Peg margins */
+.palettePeg {
+  margin: 5px;
+}
+
+.gamePeg {
+  margin: 2px;
+}
+
+.feedbackPeg {
+  margin: 1px;
+}
+
+/* Peg border styles */
+.activePeg {
+  border: 2px solid #333;
+  box-shadow: 0 0 8px rgba(0, 123, 255, 0.5);
+  transform: scale(1.1);
+}
+
+.solidBorder {
+  border: 1px solid #333;
+}
+
+.dashedBorder {
+  border: 1px dashed #999;
+}
+
+.defaultBorder {
+  border: 1px solid #999;
+}
+
+/* Peg interaction styles */
+.selectable {
+  cursor: pointer;
+}
+
+.selectable:hover {
+  transform: scale(1.05);
+  box-shadow: 0 0 5px rgba(0, 0, 0, 0.2);
+}
+
+.draggable {
+  cursor: grab;
+}
+
+.draggable:active {
+  cursor: grabbing;
+}
+
+.isOver {
+  box-shadow: 0 0 8px rgba(0, 123, 255, 0.7);
+}
+
+/* Peg colors for feedback - these could override the generic background-color */
+.correctPeg {
+  background-color: #000000 !important; /* Black */
+}
+
+.wrongPositionPeg {
+  background-color: #FFFFFF !important; /* White */
+}
+
+.emptyPeg {
+  background-color: #e9ecef !important;
+}
+
+.transparentPeg {
+  background-color: transparent !important;
+}
+
+/* Feedback dot */
+.feedbackDot {
+  width: 80%;
+  height: 80%;
+  border-radius: 50%;
+} 

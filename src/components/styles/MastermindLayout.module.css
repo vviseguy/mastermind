@@ -1,0 +1,42 @@
+/* MastermindLayout.module.css */
+.container {
+  max-width: 800px;
+  margin: 0 auto;
+  padding: 20px 20px 20px 20px;
+  font-family: Arial, sans-serif;
+  position: relative;
+}
+
+@media (min-width: 769px) {
+  .container {
+    padding: 20px 60px 20px 60px; /* Extra padding on the sides for the color selector on desktop */
+  }
+}
+
+.title {
+  text-align: center;
+  margin-bottom: 20px;
+  color: #333;
+  font-size: 1.8rem;
+}
+
+@media (max-width: 480px) {
+  .title {
+    font-size: 1.5rem;
+  }
+}
+
+.board {
+  background-color: #f8f9fa;
+  border-radius: 8px;
+  padding: 15px;
+  box-shadow: 0 2px 10px rgba(0,0,0,0.1);
+}
+
+.guessContainer {
+  display: flex;
+  flex-direction: column-reverse;
+  margin-bottom: 20px;
+  max-height: 60vh;
+  overflow-y: auto;
+} 
